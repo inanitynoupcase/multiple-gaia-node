@@ -17,7 +17,7 @@ fi
 NUM_NODES=$1
 
 # Starting port for llamaedge_port
-START_PORT=1000
+START_PORT=1001
 
 echo "Preparing to install $NUM_NODES GaiaNet nodes..."
 
