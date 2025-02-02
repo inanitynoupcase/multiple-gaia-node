@@ -17,7 +17,7 @@ fi
 NUM_NODES=$1
 
 # Starting port for llamaedge_port
-START_PORT=1001
+START_PORT=1000
 
 echo "Preparing to install $NUM_NODES GaiaNet nodes..."
 
@@ -38,7 +38,7 @@ if [ $? -ne 0 ]; then
     exit 1
 fi
 
-# Create and validate directories
+# Create directories
 for i in $(seq 1 $NUM_NODES); do
     if [ ! -d "/root/gaianet$i" ]; then
         mkdir -p "/root/gaianet$i"
@@ -52,13 +52,17 @@ done
 # Setup aliases in ~/.bashrc
 setup_aliases() {
     # Remove old aliases if exist
-    sed -i '/# GaiaNet node aliases/d' ~/.bashrc
-    sed -i '/alias gaianet[0-9]/d' ~/.bashrc
+    sed -i '/# GaiaNet node/d' ~/.bashrc
+    sed -i '/alias g[0-9]/d' ~/.bashrc
     
-    # Add new aliases
-    echo "# GaiaNet node aliases" >> ~/.bashrc
+    # Add new aliases for each node
     for i in $(seq 1 $NUM_NODES); do
-        echo "alias gaianet$i=\"cd /root/gaianet$i && gaianet\"" >> ~/.bashrc
+        echo "# GaiaNet node $i" >> ~/.bashrc
+        echo "alias g${i}info=\"/root/gaianet${i}/bin/gaianet info --base /root/gaianet${i}\"" >> ~/.bashrc
+        echo "alias g${i}start=\"/root/gaianet${i}/bin/gaianet start --base /root/gaianet${i}\"" >> ~/.bashrc
+        echo "alias g${i}stop=\"/root/gaianet${i}/bin/gaianet stop --base /root/gaianet${i}\"" >> ~/.bashrc
+        echo "alias g${i}init=\"/root/gaianet${i}/bin/gaianet init --base /root/gaianet${i}\"" >> ~/.bashrc
+        echo "" >> ~/.bashrc
     done
 }
 
@@ -89,21 +93,32 @@ done
 # Setup aliases
 setup_aliases
 
-echo -e "\nInstallation completed!"
-echo "Created $NUM_NODES nodes with llamaedge_ports from $((START_PORT + 1)) to $((START_PORT + NUM_NODES))"
-echo -e "\nTo use the new aliases, please run:"
-echo "source ~/.bashrc"
-echo -e "\nThen you can use commands like:"
+# Source bashrc to use the new aliases
+source ~/.bashrc
+
+echo -e "\nInitializing and starting all nodes..."
+# Initialize and start each node
 for i in $(seq 1 $NUM_NODES); do
-    echo "gaianet$i start"
+    echo -e "\nInitializing node $i..."
+    /root/gaianet$i/bin/gaianet init --base /root/gaianet$i
+    sleep 2
+    echo "Starting node $i..."
+    /root/gaianet$i/bin/gaianet start --base /root/gaianet$i
+    sleep 2
 done
 
-# Verify installation
-echo -e "\nVerifying installation..."
+echo -e "\nAll nodes are initialized and started!"
+echo -e "\nNode Information:"
 for i in $(seq 1 $NUM_NODES); do
-    if [ -d "/root/gaianet$i" ] && [ -f "/root/gaianet$i/config.json" ]; then
-        echo "Node $i: Installation verified ✓"
-    else
-        echo "Node $i: Installation incomplete ✗"
-    fi
+    echo -e "\nNode $i:"
+    /root/gaianet$i/bin/gaianet info --base /root/gaianet$i
+done
+
+echo -e "\nYou can use these commands to control nodes:"
+for i in $(seq 1 $NUM_NODES); do
+    echo "g${i}info  # Show info for node $i"
+    echo "g${i}start # Start node $i"
+    echo "g${i}stop  # Stop node $i"
+    echo "g${i}init  # Initialize node $i"
+    echo ""
 done
