@@ -38,6 +38,17 @@ if [ $? -ne 0 ]; then
     exit 1
 fi
 
+# Create and validate directories
+for i in $(seq 1 $NUM_NODES); do
+    if [ ! -d "/root/gaianet$i" ]; then
+        mkdir -p "/root/gaianet$i"
+        if [ $? -ne 0 ]; then
+            echo "Error: Failed to create directory /root/gaianet$i"
+            exit 1
+        fi
+    fi
+done
+
 # Setup aliases in ~/.bashrc
 setup_aliases() {
     # Remove old aliases if exist
@@ -47,7 +58,7 @@ setup_aliases() {
     # Add new aliases
     echo "# GaiaNet node aliases" >> ~/.bashrc
     for i in $(seq 1 $NUM_NODES); do
-        echo "alias gaianet$i=\"cd ~/gaianet$i && gaianet\"" >> ~/.bashrc
+        echo "alias gaianet$i=\"cd /root/gaianet$i && gaianet\"" >> ~/.bashrc
     done
 }
 
@@ -56,25 +67,43 @@ for i in $(seq 1 $NUM_NODES); do
     echo -e "\nInstalling GaiaNet node $i..."
     
     # Install node with custom directory
-    ./install.sh --base ~/gaianet$i
+    ./install.sh --base "/root/gaianet$i"
+    
+    # Wait for config.json to be created
+    sleep 2
     
     # Calculate port for current node
-    CURRENT_PORT=$((START_PORT + i - 1))
+    CURRENT_PORT=$((START_PORT + i))
     
-    # Update llamaedge_port in config.json
-    sed -i "s/\"llamaedge_port\": \"[0-9]*\"/\"llamaedge_port\": \"$CURRENT_PORT\"/" ~/gaianet$i/config.json
-    
-    echo "Node $i installed with llamaedge_port: $CURRENT_PORT"
+    # Check if config.json exists
+    if [ -f "/root/gaianet$i/config.json" ]; then
+        # Update llamaedge_port in config.json
+        sed -i "s/\"llamaedge_port\": \"[0-9]*\"/\"llamaedge_port\": \"$CURRENT_PORT\"/" "/root/gaianet$i/config.json"
+        echo "Node $i installed with llamaedge_port: $CURRENT_PORT"
+    else
+        echo "Error: config.json not found for node $i"
+        echo "Installation may have failed"
+    fi
 done
 
 # Setup aliases
 setup_aliases
 
 echo -e "\nInstallation completed!"
-echo "Created $NUM_NODES nodes with llamaedge_ports from $START_PORT to $((START_PORT + NUM_NODES - 1))"
+echo "Created $NUM_NODES nodes with llamaedge_ports from $((START_PORT + 1)) to $((START_PORT + NUM_NODES))"
 echo -e "\nTo use the new aliases, please run:"
 echo "source ~/.bashrc"
 echo -e "\nThen you can use commands like:"
 for i in $(seq 1 $NUM_NODES); do
     echo "gaianet$i start"
+done
+
+# Verify installation
+echo -e "\nVerifying installation..."
+for i in $(seq 1 $NUM_NODES); do
+    if [ -d "/root/gaianet$i" ] && [ -f "/root/gaianet$i/config.json" ]; then
+        echo "Node $i: Installation verified ✓"
+    else
+        echo "Node $i: Installation incomplete ✗"
+    fi
 done
